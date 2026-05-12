@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Quest 3 Football VR</title>
+    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-physics-system@v4.2.2/dist/aframe-physics-system.min.js"></script>
+    <!-- Look-controls and movement for Quest -->
+    <script src="https://cdn.jsdelivr.net/gh/donmccurdy/aframe-extras@v6.1.1/dist/aframe-extras.min.js"></script>
+
+    <script>
+      // AI for Opponents
+      AFRAME.registerComponent('player-ai', {
+        schema: { speed: {default: 0.03} },
+        tick: function () {
+          const ball = document.querySelector('#football');
+          const ballPos = ball.object3D.position;
+          const playerPos = this.el.object3D.position;
+          let direction = new THREE.Vector3().subVectors(ballPos, playerPos).normalize();
+          this.el.object3D.position.x += direction.x * this.schema.speed;
+          this.el.object3D.position.z += direction.z * this.schema.speed;
+          this.el.object3D.lookAt(ballPos.x, 0, ballPos.z);
+        }
+      });
+
+      // Score Detection
+      AFRAME.registerComponent('goal-logic', {
+        init: function () {
+          this.el.addEventListener('collide', (e) => {
+            if (e.detail.body.el.id === 'football') {
+              document.querySelectorAll('.fan').forEach(f => f.emit('score'));
+              // Reset ball position
+              setTimeout(() => {
+                const ball = document.querySelector('#football');
+                ball.setAttribute('position', '0 2 0');
+                ball.body.velocity.set(0, 0, 0);
+                ball.body.angularVelocity.set(0, 0, 0);
+              }, 1000);
+            }
+          });
+        }
+      });
+    </script>
+  </head>
+  <body>
+    <!-- we add 'contactMaterials' to make the ball bounce better off hands -->
+    <a-scene physics="debug: false; gravity: -9.8; friction: 0.1; restitution: 0.5">
+      
+      <a-assets>
+        <img id="grass" src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@master/examples/textures/terrain/grasslight-big.jpg">
+        <a-mixin id="fan-anim" animation__jump="property: position; dur: 250; startEvents: score; loop: 4; dir: alternate"></a-mixin>
+      </a-assets>
+
+      <!-- QUEST 3 PLAYER RIG -->
+      <a-entity id="rig" movement-controls="fly: false; speed: 0.3" position="0 0 10">
+        <a-camera look-controls position="0 1.6 0"></a-camera>
+        
+        <!-- Left Controller Interaction -->
+        <a-entity laser-controls="hand: left" raycaster="objects: .interactable; far: 2">
+            <a-sphere radius="0.15" visible="true" color="blue" static-body></a-sphere>
+        </a-entity>
+        
+        <!-- Right Controller Interaction -->
+        <a-entity laser-controls="hand: right" raycaster="objects: .interactable; far: 2">
+            <a-sphere radius="0.15" visible="true" color="red" static-body></a-sphere>
+        </a-entity>
+      </a-entity>
+
+      <!-- FIELD -->
+      <a-plane static-body rotation="-90 0 0" width="100" height="150" src="#grass" repeat="20 30"></a-plane>
+      <a-sky color="#6EBAFF"></a-sky>
+
+      <!-- THE BALL -->
+      <a-sphere id="football" dynamic-body="mass: 0.5; restitution: 0.8" 
+                position="0 2 0" radius="0.3" color="white" shadow></a-sphere>
+
+      <!-- GOAL -->
+      <a-entity position="0 0 -40" goal-logic>
+        <a-box position="-5 2.5 0" width="0.3" height="5" static-body color="white"></a-box>
+        <a-box position="5 2.5 0" width="0.3" height="5" static-body color="white"></a-box>
+        <a-box position="0 5 0" width="10.3" height="0.3" static-body color="white"></a-box>
+        <!-- The trigger zone -->
+        <a-box position="0 2.5 0" width="10" height="5" depth="1" 
+               static-body material="transparent: true; opacity: 0.2" color="yellow"></a-box>
+      </a-entity>
+
+      <!-- TEAMMATES & OPPONENTS -->
+      <a-entity geometry="primitive: capsule" material="color: green" position="-5 0.8 -5" static-body></a-entity>
+      <a-entity geometry="primitive: capsule" material="color: red" position="3 0.8 -10" player-ai="speed: 0.03" static-body></a-entity>
+
+      <!-- CROWD -->
+      <a-entity position="-20 1 0">
+        <a-entity class="fan" mixin="fan-anim" geometry="primitive: cylinder; radius:0.3" position="0 0.5 -2" material="color: blue" animation__jump="to: 0 1.5 -2"></a-entity>
+        <a-entity class="fan" mixin="fan-anim" geometry="primitive: cylinder; radius:0.3" position="0 0.5 2" material="color: orange" animation__jump="to: 0 1.5 2"></a-entity>
+      </a-entity>
+
+    </a-scene>
+  </body>
+</html>
